@@ -326,6 +326,7 @@ func (e *matchingEngineImpl) AddDecisionTask(
 	if taskListKind != nil && *taskListKind == types.TaskListKindSticky {
 		// check if the sticky worker is still available, if not, fail this request early
 		if !tlMgr.HasPollerAfter(time.Now().Add(-_stickyPollerUnavailableWindow)) {
+			e.logger.Error(">> adding a task has failed, the worker isn't available")
 			return false, _stickyPollerUnavailableError
 		}
 	}
