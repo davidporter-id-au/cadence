@@ -600,19 +600,19 @@ func (c *taskListManagerImpl) getIsolationGroupForTask(ctx context.Context, task
 			return "", nil
 		}
 		c.logger.Debug("get isolation group", tag.PollerGroups(pollerIsolationGroups), tag.IsolationGroup(group), tag.PartitionConfig(partitionConfig))
-		// For a sticky tasklist, it is possible that when an isolation group is undrained, the tasks from one workflow is reassigned
-		// to the isolation group undrained. If there is no poller from the isolation group, we should return StickyUnavailableError
-		// to let the task to be re-enqueued to the non-sticky tasklist. If there is poller, just return an empty isolation group, because
-		// there is at most one isolation group for sticky tasklist and we could just use empty isolation group for matching.
-		if c.taskListKind == types.TaskListKindSticky {
-			pollerIsolationGroups = c.pollerHistory.getPollerIsolationGroups(time.Time{})
-			for _, pollerGroup := range pollerIsolationGroups {
-				if group == pollerGroup {
-					return "", nil
-				}
-			}
-			return "", _stickyPollerUnavailableError
-		}
+		//// For a sticky tasklist, it is possible that when an isolation group is undrained, the tasks from one workflow is reassigned
+		//// to the isolation group undrained. If there is no poller from the isolation group, we should return StickyUnavailableError
+		//// to let the task to be re-enqueued to the non-sticky tasklist. If there is poller, just return an empty isolation group, because
+		//// there is at most one isolation group for sticky tasklist and we could just use empty isolation group for matching.
+		//if c.taskListKind == types.TaskListKindSticky {
+		//	pollerIsolationGroups = c.pollerHistory.getPollerIsolationGroups(time.Time{})
+		//	for _, pollerGroup := range pollerIsolationGroups {
+		//		if group == pollerGroup {
+		//			return "", nil
+		//		}
+		//	}
+		//	//return "", _stickyPollerUnavailableError
+		//}
 		return group, nil
 	}
 	return "", nil
