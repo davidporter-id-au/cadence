@@ -593,6 +593,7 @@ func (c *taskListManagerImpl) getIsolationGroupForTask(ctx context.Context, task
 		if err != nil {
 			// For a sticky tasklist, return StickyUnavailableError to let it be added to the non-sticky tasklist.
 			if err == partition.ErrNoIsolationGroupsAvailable && c.taskListKind == types.TaskListKindSticky {
+				c.logger.Error(">> err returne dfrom partitioner sticky tasklist err", tag.WorkflowID(taskInfo.WorkflowID), tag.WorkflowRunID(taskInfo.RunID), tag.TaskID(taskInfo.TaskID), tag.Error(err))
 				return "", _stickyPollerUnavailableError
 			}
 			// if we're unable to get the isolation group, log the error and fallback to no isolation

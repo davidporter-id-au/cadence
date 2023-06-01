@@ -82,7 +82,7 @@ func (r *defaultPartitioner) GetIsolationGroupByDomainID(ctx context.Context, do
 	}
 	wfPartition := mapPartitionConfigToDefaultPartitionConfig(wfPartitionData)
 	if wfPartition.WorkflowStartIsolationGroup == "" || wfPartition.WFID == "" {
-		return "", ErrInvalidPartitionConfig
+		return "", fmt.Errorf("workflow isolation group missing or workflow ID missing in partition: %v", wfPartition)
 	}
 
 	available, err := r.isolationGroupState.AvailableIsolationGroupsByDomainID(ctx, domainID, availablePollerIsolationGroups)
