@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/uber/cadence/client/admin"
+	"github.com/uber/cadence/common/cluster"
 	"strings"
 	"time"
 
@@ -87,6 +89,10 @@ const (
 	WorkflowAborted = "aborted"
 
 	unknownOperator = "unknown"
+)
+
+var (
+	targetClusterNotPresent = errors.New("target cluster is not present")
 )
 
 type (
@@ -396,6 +402,16 @@ func getClient(ctx context.Context) frontend.Client {
 	return feClient
 }
 
+func getAdminClient(ctx context.Context) admin.Client {
+	manager := ctx.Value(failoverManagerContextKey).(*FailoverManager)
+	return manager.clientBean.GetRemoteAdminClient(manager.cfg.ClusterMetadata.GetCurrentClusterName())
+}
+
+func getClusterMetadata(ctx context.Context) cluster.Metadata {
+	manager := ctx.Value(failoverManagerContextKey).(*FailoverManager)
+	return manager.cfg.ClusterMetadata
+}
+
 func getRemoteClient(ctx context.Context, clusterName string) frontend.Client {
 	manager := ctx.Value(failoverManagerContextKey).(*FailoverManager)
 	feClient := manager.clientBean.GetRemoteFrontendClient(clusterName)
@@ -448,10 +464,21 @@ func FailoverActivity(ctx context.Context, params *FailoverActivityParams) (*Fai
 	logger := activity.GetLogger(ctx)
 	frontendClient := getClient(ctx)
 	domains := params.Domains
+
 	var successDomains []string
 	var failedDomains []string
 	for _, domain := range domains {
-		// Check if poller exist
+
+		if err := validateFailoverConfig(ctx, params.TargetCluster, domain, getClusterMetadata(ctx)); err != nil {
+			logger.Error("unable to failover domain due to configuration validation failure",
+				zap.Error(err),
+				zap.String("wf-domain-name", domain),
+				zap.String("target-cluster", params.TargetCluster),
+			)
+			failedDomains = append(failedDomains, domain)
+			continue
+		}
+
 		if err := validateTaskListPollerInfo(ctx, params.TargetCluster, domain); err != nil {
 			logger.Error("Failed to validate task list poller info", zap.Error(err))
 			failedDomains = append(failedDomains, domain)
@@ -499,6 +526,7 @@ func validateTaskListPollerInfo(ctx context.Context, targetCluster string, domai
 		return fmt.Errorf("failed to get task list for domain %s", domain)
 	}
 	for name, tl := range localTaskListResponse.GetDecisionTaskListMap() {
+
 		if len(tl.GetPollers()) != 0 {
 			remoteTaskList, ok := remoteTaskListRepsonse.GetDecisionTaskListMap()[name]
 			if !ok || len(remoteTaskList.GetPollers()) == 0 {
@@ -514,5 +542,18 @@ func validateTaskListPollerInfo(ctx context.Context, targetCluster string, domai
 			}
 		}
 	}
+	return nil
+}
+
+func validateFailoverConfig(ctx context.Context, targetCluster string, domain string, metadata cluster.Metadata) error {
+	cfg := metadata.GetAllClusterInfo()
+	cluster, ok := cfg[targetCluster]
+	if !ok {
+		return fmt.Errorf("couldn't get target: %q, for the failover of domain %q: %w", targetCluster, targetClusterNotPresent)
+	}
+	if !cluster.Enabled {
+		return fmt.Errorf("cluster %q not enabled for the failover of domain %q: %w", targetCluster, domain, targetClusterNotPresent)
+	}
+
 	return nil
 }
