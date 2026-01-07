@@ -74,6 +74,12 @@ func (e *historyEngineImpl) startWorkflowHelper(
 	metricsScope metrics.ScopeIdx,
 	signalWithStartArg *signalWithStartArg,
 ) (resp *types.StartWorkflowExecutionResponse, retError error) {
+	if e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domainEntry.GetInfo().Name) {
+		e.logger.Info("debug info - Cleanup orphaned history branch on workflow creation is enabled",
+			tag.WorkflowDomainID(domainEntry.GetInfo().ID),
+			tag.WorkflowDomainName(domainEntry.GetInfo().Name),
+		)
+	}
 	if domainEntry.GetInfo().Status != persistence.DomainStatusRegistered {
 		return nil, errDomainDeprecated
 	}
@@ -352,9 +358,9 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	isSignalWithStart bool,
 	err error,
 ) {
-	// if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation() {
-	// 	return
-	// }
+	if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
+		return
+	}
 
 	if isSignalWithStart {
 		// expected behaviour for signalWithStart is that the request is duplicated
@@ -380,7 +386,7 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	// The key here is to delete the additational branch, since it has just been created earlier in this call
 	// and is not used. However, we must be careful, there may be other existing branches that we must not touch
 	if isAlreadyStarted || isDuplicateRequest {
-		e.logger.Warn("Dry run - would delete orphaned history branch during cleanup after identified failure during creation",
+		e.logger.Info("Deleting orphaned history branch during cleanup after identified failure during creation",
 			tag.WorkflowDomainID(domainID),
 			tag.WorkflowID(workflowID),
 			tag.WorkflowRunID(workflowExecution.RunID),
@@ -390,18 +396,18 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 			tag.Dynamic("historyBlobBranchToken", historyBlob.BranchToken),
 			tag.Error(err))
 
-		// cleanupErr := e.shard.GetHistoryManager().DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
-		// 	BranchToken: historyBlob.BranchToken,
-		// 	ShardID:     common.IntPtr(e.shard.GetShardID()),
-		// 	DomainName:  domain,
-		// })
-		// if cleanupErr != nil {
-		// 	e.logger.Error("Failed to cleanup orphaned history branch",
-		// 		tag.WorkflowDomainID(domainID),
-		// 		tag.WorkflowID(workflowID),
-		// 		tag.WorkflowRunID(workflowExecution.RunID),
-		// 		tag.Error(cleanupErr))
-		// }
+		cleanupErr := e.shard.GetHistoryManager().DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
+			BranchToken: historyBlob.BranchToken,
+			ShardID:     common.IntPtr(e.shard.GetShardID()),
+			DomainName:  domain,
+		})
+		if cleanupErr != nil {
+			e.logger.Error("Failed to cleanup orphaned history branch",
+				tag.WorkflowDomainID(domainID),
+				tag.WorkflowID(workflowID),
+				tag.WorkflowRunID(workflowExecution.RunID),
+				tag.Error(cleanupErr))
+		}
 		if e.shard.GetConfig().EnableRecordWorkflowExecutionUninitialized(domain) && e.visibilityMgr != nil {
 			// delete the uninitialized workflow execution record since it failed to start the workflow
 			// uninitialized record is used to find wfs that didn't make a progress or stuck during the start process

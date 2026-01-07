@@ -283,7 +283,7 @@ type Config struct {
 	ReplicationTaskGenerationQPS                         dynamicproperties.FloatPropertyFn
 	EnableReplicationTaskGeneration                      dynamicproperties.BoolPropertyFnWithDomainIDAndWorkflowIDFilter
 	EnableRecordWorkflowExecutionUninitialized           dynamicproperties.BoolPropertyFnWithDomainFilter
-	EnableCleanupOrphanedHistoryBranchOnWorkflowCreation dynamicproperties.BoolPropertyFn
+	EnableCleanupOrphanedHistoryBranchOnWorkflowCreation dynamicproperties.BoolPropertyFnWithDomainFilter
 	ReplicationTaskProcessorLatencyLogThreshold          dynamicproperties.DurationPropertyFn
 
 	// The following are used by the history workflowID cache
