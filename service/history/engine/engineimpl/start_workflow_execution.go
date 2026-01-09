@@ -78,6 +78,7 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		e.logger.Info("debug info - Cleanup orphaned history branch on workflow creation is enabled",
 			tag.WorkflowDomainID(domainEntry.GetInfo().ID),
 			tag.WorkflowDomainName(domainEntry.GetInfo().Name),
+			tag.WorkflowID(startRequest.StartRequest.WorkflowID),
 		)
 	}
 	if domainEntry.GetInfo().Status != persistence.DomainStatusRegistered {
