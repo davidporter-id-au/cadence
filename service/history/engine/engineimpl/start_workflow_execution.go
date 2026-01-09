@@ -74,13 +74,6 @@ func (e *historyEngineImpl) startWorkflowHelper(
 	metricsScope metrics.ScopeIdx,
 	signalWithStartArg *signalWithStartArg,
 ) (resp *types.StartWorkflowExecutionResponse, retError error) {
-	if e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domainEntry.GetInfo().Name) {
-		e.logger.Info("debug info - Cleanup orphaned history branch on workflow creation is enabled",
-			tag.WorkflowDomainID(domainEntry.GetInfo().ID),
-			tag.WorkflowDomainName(domainEntry.GetInfo().Name),
-			tag.WorkflowID(startRequest.StartRequest.WorkflowID),
-		)
-	}
 	if domainEntry.GetInfo().Status != persistence.DomainStatusRegistered {
 		return nil, errDomainDeprecated
 	}
@@ -124,6 +117,14 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		return nil, err
 	}
 
+	e.logger.Info("debug info - Start workflow execution",
+		tag.WorkflowDomainID(domainEntry.GetInfo().ID),
+		tag.WorkflowDomainName(domainEntry.GetInfo().Name),
+		tag.WorkflowID(startRequest.StartRequest.WorkflowID),
+		tag.WorkflowRunID(workflowExecution.RunID),
+		tag.Dynamic("wf-start-debug-request", startRequest),
+	)
+
 	// preprocess for signalWithStart
 	var prevMutableState execution.MutableState
 	var signalWithStartRequest *types.HistorySignalWithStartWorkflowExecutionRequest
@@ -133,6 +134,13 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		signalWithStartRequest = signalWithStartArg.signalWithStartRequest
 	}
 	if prevMutableState != nil {
+		e.logger.Info("debug info - Start workflow execution - prevMutableState != nil",
+			tag.WorkflowDomainID(domainID),
+			tag.WorkflowDomainName(domain),
+			tag.WorkflowID(startRequest.StartRequest.WorkflowID),
+			tag.WorkflowRunID(workflowExecution.RunID),
+			tag.Dynamic("wf-start-debug-prevMutableState", prevMutableState),
+		)
 		prevLastWriteVersion, err := prevMutableState.GetLastWriteVersion()
 		if err != nil {
 			return nil, err
@@ -194,7 +202,6 @@ func (e *historyEngineImpl) startWorkflowHelper(
 				e.logger.Error("Failed to delete uninitialized workflow execution record", tag.Error(errVisibility))
 			}
 		}
-
 		return nil, err
 	}
 	wfContext := execution.NewContext(domainID, workflowExecution, e.shard, e.executionManager, e.logger)
@@ -246,7 +253,16 @@ func (e *historyEngineImpl) startWorkflowHelper(
 	// Remove history in these cases.
 	// All other cases, log them for future leak investigations.
 	if err != nil {
-		e.handleCreateWorkflowExecutionFailureCleanup(ctx, workflowExecution, domainID, historyBlob, domain, workflowID, isSignalWithStart, err)
+		e.handleCreateWorkflowExecutionFailureCleanup(ctx,
+			workflowExecution,
+			domainID,
+			historyBlob,
+			domain,
+			workflowID,
+			isSignalWithStart,
+			prevMutableState,
+			err,
+		)
 	}
 
 	if t, ok := persistence.AsDuplicateRequestError(err); ok {
@@ -357,6 +373,7 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	domain string,
 	workflowID string,
 	isSignalWithStart bool,
+	prevMutableState execution.MutableState,
 	err error,
 ) {
 	if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
@@ -387,7 +404,7 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	// The key here is to delete the additational branch, since it has just been created earlier in this call
 	// and is not used. However, we must be careful, there may be other existing branches that we must not touch
 	if isAlreadyStarted || isDuplicateRequest {
-		e.logger.Info("Deleting orphaned history branch during cleanup after identified failure during creation",
+		e.logger.Info("debug info - dry run - Deleting orphaned history branch during cleanup after identified failure during creation",
 			tag.WorkflowDomainID(domainID),
 			tag.WorkflowID(workflowID),
 			tag.WorkflowRunID(workflowExecution.RunID),
@@ -395,20 +412,21 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 			tag.Dynamic("isDuplicateRequest", isDuplicateRequest),
 			tag.Dynamic("isTransientError", isTransientError),
 			tag.Dynamic("historyBlobBranchToken", historyBlob.BranchToken),
+			tag.Dynamic("prevMutableState", prevMutableState),
 			tag.Error(err))
 
-		cleanupErr := e.shard.GetHistoryManager().DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
-			BranchToken: historyBlob.BranchToken,
-			ShardID:     common.IntPtr(e.shard.GetShardID()),
-			DomainName:  domain,
-		})
-		if cleanupErr != nil {
-			e.logger.Error("Failed to cleanup orphaned history branch",
-				tag.WorkflowDomainID(domainID),
-				tag.WorkflowID(workflowID),
-				tag.WorkflowRunID(workflowExecution.RunID),
-				tag.Error(cleanupErr))
-		}
+		// cleanupErr := e.shard.GetHistoryManager().DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
+		// 	BranchToken: historyBlob.BranchToken,
+		// 	ShardID:     common.IntPtr(e.shard.GetShardID()),
+		// 	DomainName:  domain,
+		// })
+		// if cleanupErr != nil {
+		// 	e.logger.Error("Failed to cleanup orphaned history branch",
+		// 		tag.WorkflowDomainID(domainID),
+		// 		tag.WorkflowID(workflowID),
+		// 		tag.WorkflowRunID(workflowExecution.RunID),
+		// 		tag.Error(cleanupErr))
+		// }
 		if e.shard.GetConfig().EnableRecordWorkflowExecutionUninitialized(domain) && e.visibilityMgr != nil {
 			// delete the uninitialized workflow execution record since it failed to start the workflow
 			// uninitialized record is used to find wfs that didn't make a progress or stuck during the start process
