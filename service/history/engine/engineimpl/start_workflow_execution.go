@@ -376,9 +376,9 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	prevMutableState execution.MutableState,
 	err error,
 ) {
-	if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
-		return
-	}
+	// if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
+	// 	return
+	// }
 
 	if isSignalWithStart {
 		// expected behaviour for signalWithStart is that the request is duplicated
