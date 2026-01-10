@@ -178,7 +178,7 @@ func executeCreateWorkflowBatchTransaction(
 	if currentExecutionAlreadyExists {
 		if actualExecution != nil {
 			executionInfo := parseWorkflowExecutionInfo(actualExecution)
-			msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v", currentWorkflowRequest.Row.WorkflowID, executionInfo.RunID)
+			msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v. Current execution already exists. Actual execution: %v", currentWorkflowRequest.Row.WorkflowID, executionInfo.RunID, actualExecution)
 			return &nosqlplugin.WorkflowOperationConditionFailure{
 				WorkflowExecutionAlreadyExists: &nosqlplugin.WorkflowExecutionAlreadyExists{
 					OtherInfo:        msg,
@@ -190,7 +190,7 @@ func executeCreateWorkflowBatchTransaction(
 				},
 			}
 		}
-		msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v", currentWorkflowRequest.Row.WorkflowID)
+		msg := fmt.Sprintf("Workflow execution already running, however no actual execution record was available. WorkflowId: %v", currentWorkflowRequest.Row.WorkflowID)
 		return &nosqlplugin.WorkflowOperationConditionFailure{
 			CurrentWorkflowConditionFailInfo: &msg,
 		}
@@ -217,7 +217,7 @@ func executeCreateWorkflowBatchTransaction(
 		}
 	}
 	if concreteExecutionAlreadyExists {
-		msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v", execution.WorkflowID, execution.RunID)
+		msg := fmt.Sprintf("Workflow execution already running. There's a concrete execution record for this workflow. WorkflowId: %v, RunId: %v", execution.WorkflowID, execution.RunID)
 		return &nosqlplugin.WorkflowOperationConditionFailure{
 			WorkflowExecutionAlreadyExists: &nosqlplugin.WorkflowExecutionAlreadyExists{
 				OtherInfo:        msg,
