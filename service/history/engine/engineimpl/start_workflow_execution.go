@@ -358,6 +358,14 @@ func (e *historyEngineImpl) startWorkflowHelper(
 			t.LastWriteVersion,
 			persistence.CreateWorkflowRequestModeNew,
 		)
+		e.logger.Info("debug info - CreateWorkflowExecution completed after retry - but there was an error in creating the workflow, possible orphaned history branch",
+			tag.WorkflowDomainID(domainID),
+			tag.WorkflowDomainName(domain),
+			tag.WorkflowID(workflowID),
+			tag.WorkflowRunID(workflowExecution.RunID),
+			tag.Dynamic("wf-start-debug-request", startRequest),
+			tag.Error(err),
+		)
 		if t, ok := persistence.AsDuplicateRequestError(err); ok {
 			if t.RequestType == persistence.WorkflowRequestTypeStart || (isSignalWithStart && t.RequestType == persistence.WorkflowRequestTypeSignal) {
 				return &types.StartWorkflowExecutionResponse{
@@ -405,6 +413,25 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	workflowIDReusePolicy types.WorkflowIDReusePolicy,
 	err error,
 ) {
+
+	var workflowExecutionAlreadyStartedError *persistence.WorkflowExecutionAlreadyStartedError
+	isAlreadyStarted := errors.As(err, &workflowExecutionAlreadyStartedError)
+	_, isDuplicateRequest := persistence.AsDuplicateRequestError(err)
+	isTransientError := persistence.IsTransientError(err)
+
+	e.logger.Info("debug info - handleCreateWorkflowExecutionFailureCleanup hit",
+		tag.WorkflowDomainID(domainID),
+		tag.WorkflowDomainName(domain),
+		tag.WorkflowID(workflowID),
+		tag.WorkflowRunID(workflowExecution.RunID),
+		tag.Dynamic("isAlreadyStarted", isAlreadyStarted),
+		tag.Dynamic("isDuplicateRequest", isDuplicateRequest),
+		tag.Dynamic("isTransientError", isTransientError),
+		tag.Dynamic("historyBlobBranchToken", historyBlob.BranchToken),
+		tag.Dynamic("prevMutableState", prevMutableState),
+		tag.Dynamic("isSignalWithStart", isSignalWithStart),
+		tag.Error(err),
+	)
 	// todo (david.porter) reenable before merge
 	// if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
 	// 	return
@@ -425,11 +452,6 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 		// is probably the safest option
 		return
 	}
-
-	var workflowExecutionAlreadyStartedError *persistence.WorkflowExecutionAlreadyStartedError
-	isAlreadyStarted := errors.As(err, &workflowExecutionAlreadyStartedError)
-	_, isDuplicateRequest := persistence.AsDuplicateRequestError(err)
-	isTransientError := persistence.IsTransientError(err)
 
 	// The key here is to delete the additational branch, since it has just been created earlier in this call
 	// and is not used. However, we must be careful, there may be other existing branches that we must not touch
