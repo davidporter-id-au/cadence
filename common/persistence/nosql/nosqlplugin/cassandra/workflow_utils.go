@@ -30,13 +30,14 @@ import (
 
 	"github.com/uber/cadence/common"
 	"github.com/uber/cadence/common/constants"
+	"github.com/uber/cadence/common/log/tag"
 	"github.com/uber/cadence/common/persistence"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin/cassandra/gocql"
 	"github.com/uber/cadence/common/types"
 )
 
-func executeCreateWorkflowBatchTransaction(
+func (db *CDB) executeCreateWorkflowBatchTransaction(
 	ctx context.Context,
 	session gocql.Session,
 	batch gocql.Batch,
@@ -84,6 +85,12 @@ func executeCreateWorkflowBatchTransaction(
 	var allPrevious []map[string]interface{}
 
 	for {
+		db.logger.Info("debug info - Executing create workflow batch transaction",
+			tag.WorkflowDomainID(execution.DomainID),
+			tag.WorkflowID(execution.WorkflowID),
+			tag.WorkflowRunID(execution.RunID),
+			tag.Dynamic("debug-previous-row", previous),
+		)
 		rowType, ok := previous["type"].(int)
 		if !ok {
 			// This should never happen, as all our rows have the type field.

@@ -75,7 +75,7 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 
 	assertShardRangeID(batch, shardID, shardCondition.RangeID, timeStamp)
 
-	err = executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
+	err = db.executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
 	if err != nil {
 		db.logger.Error("debug info - Error executing create workflow batch transaction",
 			tag.WorkflowDomainID(domainID),

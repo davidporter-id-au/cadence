@@ -21,13 +21,20 @@
 package event
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/uber/cadence/common/persistence"
 	"github.com/uber/cadence/common/types"
 )
+
+var enabled = false
+
+func init() {
+	enabled = os.Getenv("MATCHING_LOG_EVENTS") == "true"
+}
 
 type E struct {
 	persistence.TaskInfo
