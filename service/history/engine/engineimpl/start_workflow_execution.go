@@ -120,7 +120,7 @@ func (e *historyEngineImpl) startWorkflowHelper(
 	e.logger.Info("debug info - Start workflow execution",
 		tag.WorkflowDomainID(domainEntry.GetInfo().ID),
 		tag.WorkflowDomainName(domainEntry.GetInfo().Name),
-		tag.WorkflowID(startRequest.StartRequest.WorkflowID),
+		tag.WorkflowID(workflowID),
 		tag.WorkflowRunID(workflowExecution.RunID),
 		tag.Dynamic("wf-start-debug-request", startRequest),
 	)
@@ -189,6 +189,14 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		startRequest,
 		signalWithStartRequest,
 	)
+	e.logger.Info("debug info - addStartEventsAndTasks completed - but there was an error in adding events and tasks, possible orphaned history branch",
+		tag.WorkflowDomainID(domainEntry.GetInfo().ID),
+		tag.WorkflowDomainName(domainEntry.GetInfo().Name),
+		tag.WorkflowID(workflowID),
+		tag.WorkflowRunID(workflowExecution.RunID),
+		tag.Dynamic("wf-start-debug-request", startRequest),
+	)
+
 	if err != nil {
 		if e.shard.GetConfig().EnableRecordWorkflowExecutionUninitialized(domainEntry.GetInfo().Name) && e.visibilityMgr != nil {
 			// delete the uninitialized workflow execution record since it failed to start the workflow
@@ -234,6 +242,17 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		prevRunID = info.RunID
 		prevLastWriteVersion, err = prevMutableState.GetLastWriteVersion()
 		if err != nil {
+			e.handleCreateWorkflowExecutionFailureCleanup(ctx,
+				workflowExecution,
+				domainID,
+				historyBlob,
+				domain,
+				workflowID,
+				isSignalWithStart,
+				prevMutableState,
+				request.GetWorkflowIDReusePolicy(),
+				err,
+			)
 			return nil, err
 		}
 	}
@@ -314,6 +333,17 @@ func (e *historyEngineImpl) startWorkflowHelper(
 			workflowExecution,
 			startRequest.StartRequest.GetWorkflowIDReusePolicy(),
 		); err != nil {
+			e.handleCreateWorkflowExecutionFailureCleanup(ctx,
+				workflowExecution,
+				domainID,
+				historyBlob,
+				domain,
+				workflowID,
+				isSignalWithStart,
+				prevMutableState,
+				request.GetWorkflowIDReusePolicy(),
+				err,
+			)
 			return nil, err
 		}
 		// create as ID reuse
