@@ -1194,21 +1194,10 @@ func createWorkflowExecutionWithRetry(
 ) (*persistence.CreateWorkflowExecutionResponse, error) {
 	logger = logger.Helper()
 
-	var attempt int
-
 	var resp *persistence.CreateWorkflowExecutionResponse
 	op := func(ctx context.Context) error {
-		attempt++
 		var err error
 		resp, err = shardContext.CreateWorkflowExecution(ctx, request)
-		logger.Info("debug info - CreateWorkflowExecution hit - returning after throttleRetry.",
-			tag.WorkflowDomainID(request.NewWorkflowSnapshot.ExecutionInfo.DomainID),
-			tag.WorkflowID(request.NewWorkflowSnapshot.ExecutionInfo.WorkflowID),
-			tag.WorkflowRunID(request.NewWorkflowSnapshot.ExecutionInfo.RunID),
-			tag.Dynamic("debug-new-workflow-snapshot", request.NewWorkflowSnapshot),
-			tag.Dynamic("attempt-count", attempt),
-			tag.Error(err),
-		)
 		return err
 	}
 	isRetryable := func(err error) bool {
@@ -1228,14 +1217,9 @@ func createWorkflowExecutionWithRetry(
 	err := throttleRetry.Do(ctx, op)
 	switch err.(type) {
 	case nil:
-		logger.Info("debug info - hit success case after retrying, no error on worklfow start",
-			tag.WorkflowDomainID(request.NewWorkflowSnapshot.ExecutionInfo.DomainID),
-			tag.WorkflowID(request.NewWorkflowSnapshot.ExecutionInfo.WorkflowID),
-			tag.WorkflowRunID(request.NewWorkflowSnapshot.ExecutionInfo.RunID),
-			tag.Dynamic("debug-new-workflow-snapshot", request.NewWorkflowSnapshot))
 		return resp, nil
 	case *persistence.WorkflowExecutionAlreadyStartedError:
-		logger.Info("debug info - WorkflowExecutionAlreadyStartedError hit - returning after throttleRetry.", tag.Error(err),
+		logger.Debug("debug info - WorkflowExecutionAlreadyStartedError hit - returning after throttleRetry.", tag.Error(err),
 			tag.WorkflowDomainID(request.NewWorkflowSnapshot.ExecutionInfo.DomainID),
 			tag.WorkflowID(request.NewWorkflowSnapshot.ExecutionInfo.WorkflowID),
 			tag.WorkflowRunID(request.NewWorkflowSnapshot.ExecutionInfo.RunID),

@@ -77,7 +77,7 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 
 	err = db.executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
 	if err != nil {
-		db.logger.Error("debug info - Error executing create workflow batch transaction",
+		db.logger.Debug("debug info - Error executing create workflow batch transaction",
 			tag.WorkflowDomainID(domainID),
 			tag.WorkflowID(workflowID),
 			tag.WorkflowRunID(execution.RunID),
@@ -85,7 +85,7 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 			tag.Error(err))
 		return err
 	}
-	db.logger.Info("debug info - No error executing create workflow batch transaction",
+	db.logger.Debug("debug info - No error executing create workflow batch transaction",
 		tag.WorkflowDomainID(domainID),
 		tag.WorkflowID(workflowID),
 		tag.WorkflowRunID(execution.RunID),

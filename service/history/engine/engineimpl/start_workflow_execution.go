@@ -246,26 +246,6 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		prevLastWriteVersion,
 		persistence.CreateWorkflowRequestModeNew,
 	)
-
-	// The history branch (tree and nodes) was created above (PersistStartWorkflowBatchEvents)
-	// but the workflow execution returned an error, and it was probably not created.
-	// This may leave orphaned history_tree and history_node records that are never referenced by any workflow.
-	// Remove history in these cases.
-	// All other cases, log them for future leak investigations.
-	if err != nil {
-		e.handleCreateWorkflowExecutionFailureCleanup(ctx,
-			workflowExecution,
-			domainID,
-			historyBlob,
-			domain,
-			workflowID,
-			isSignalWithStart,
-			prevMutableState,
-			request.GetWorkflowIDReusePolicy(),
-			err,
-		)
-	}
-
 	if t, ok := persistence.AsDuplicateRequestError(err); ok {
 		if t.RequestType == persistence.WorkflowRequestTypeStart || (isSignalWithStart && t.RequestType == persistence.WorkflowRequestTypeSignal) {
 			return &types.StartWorkflowExecutionResponse{
@@ -338,6 +318,7 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		}
 		// create as ID reuse
 		createMode = persistence.CreateWorkflowModeWorkflowIDReuse
+		// todo (david.porter): need to ask / understand why we're reusing the runID
 		err = wfContext.CreateWorkflowExecution(
 			ctx,
 			newWorkflow,
@@ -358,6 +339,22 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		}
 	}
 	if err != nil {
+		// The history branch (tree and nodes) was created above (PersistStartWorkflowBatchEvents)
+		// but the workflow execution returned an error, and it was probably not created.
+		// This may leave orphaned history_tree and history_node records that are never referenced by any workflow.
+		// Remove history in these cases.
+		// All other cases, log them for future leak investigations.
+		e.handleCreateWorkflowExecutionFailureCleanup(ctx,
+			workflowExecution,
+			domainID,
+			historyBlob,
+			domain,
+			workflowID,
+			isSignalWithStart,
+			prevMutableState,
+			request.GetWorkflowIDReusePolicy(),
+			err,
+		)
 		return nil, err
 	}
 
@@ -378,18 +375,10 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	workflowIDReusePolicy types.WorkflowIDReusePolicy,
 	err error,
 ) {
+	// todo (david.porter) reenable before merge
 	// if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
 	// 	return
 	// }
-
-	if workflowIDReusePolicy == types.WorkflowIDReusePolicyAllowDuplicate {
-		// expected behaviour for allow duplicate is that the request is duplicated
-		// and we get a duplicate request error
-		// if _, ok := persistence.AsDuplicateRequestError(err); ok {
-		// 	return
-		// }
-		e.logger.Info("debug info - allow duplicate - duplicate request error", tag.Error(err))
-	}
 
 	if isSignalWithStart {
 		// expected behaviour for signalWithStart is that the request is duplicated
