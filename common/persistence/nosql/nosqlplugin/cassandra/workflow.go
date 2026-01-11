@@ -82,7 +82,17 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 		tag.Dynamic("debug-batch-contents", batch),
 	)
 
-	return executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
+	err = executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
+	if err != nil {
+		db.logger.Error("debug info - Error executing create workflow batch transaction",
+			tag.WorkflowDomainID(domainID), tag.WorkflowID(workflowID),
+			tag.WorkflowRunID(execution.RunID),
+			tag.Dynamic("debug-batch-contents", batch),
+			tag.Error(err))
+		return err
+	}
+
+	return nil
 }
 
 func (db *CDB) SelectCurrentWorkflow(
