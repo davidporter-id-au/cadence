@@ -261,6 +261,7 @@ func (e *historyEngineImpl) startWorkflowHelper(
 			workflowID,
 			isSignalWithStart,
 			prevMutableState,
+			request.GetWorkflowIDReusePolicy(),
 			err,
 		)
 	}
@@ -374,11 +375,21 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	workflowID string,
 	isSignalWithStart bool,
 	prevMutableState execution.MutableState,
+	workflowIDReusePolicy types.WorkflowIDReusePolicy,
 	err error,
 ) {
 	// if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domain) {
 	// 	return
 	// }
+
+	if workflowIDReusePolicy == types.WorkflowIDReusePolicyAllowDuplicate {
+		// expected behaviour for allow duplicate is that the request is duplicated
+		// and we get a duplicate request error
+		// if _, ok := persistence.AsDuplicateRequestError(err); ok {
+		// 	return
+		// }
+		e.logger.Info("debug info - allow duplicate - duplicate request error", tag.Error(err))
+	}
 
 	if isSignalWithStart {
 		// expected behaviour for signalWithStart is that the request is duplicated

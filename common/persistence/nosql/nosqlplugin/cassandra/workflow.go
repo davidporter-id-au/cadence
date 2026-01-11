@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/uber/cadence/common/constants"
+	"github.com/uber/cadence/common/log/tag"
 	"github.com/uber/cadence/common/persistence"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin/cassandra/gocql"
@@ -73,6 +74,13 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 	createTasksByCategory(batch, shardID, domainID, workflowID, timeStamp, tasksByCategory)
 
 	assertShardRangeID(batch, shardID, shardCondition.RangeID, timeStamp)
+
+	db.logger.Info("debug info - Executing create workflow batch transaction",
+		tag.WorkflowDomainID(domainID),
+		tag.WorkflowID(workflowID),
+		tag.WorkflowRunID(execution.RunID),
+		tag.Dynamic("debug-batch-contents", batch),
+	)
 
 	return executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
 }
