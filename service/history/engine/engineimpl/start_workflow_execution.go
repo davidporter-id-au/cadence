@@ -370,6 +370,11 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	err error,
 ) {
 
+	if workflowExecution == nil || historyBlob == nil {
+		// expected behaviour, errors caused by validation will not have a workflow execution
+		return
+	}
+
 	if !e.shard.GetConfig().EnableCleanupOrphanedHistoryBranchOnWorkflowCreation(domainEntry.GetInfo().Name) {
 		e.logger.Warn("cleanup of orphaned history branch is disabled, but possible orphaned history branch was detected",
 			tag.WorkflowDomainID(domainEntry.GetInfo().ID),
@@ -387,11 +392,6 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 			tag.WorkflowID(workflowExecution.WorkflowID),
 			tag.WorkflowRunID(workflowExecution.RunID),
 			tag.Error(err))
-		return
-	}
-
-	if workflowExecution == nil || historyBlob == nil {
-		// expected behaviour, errors caused by validation will not have a workflow execution
 		return
 	}
 
