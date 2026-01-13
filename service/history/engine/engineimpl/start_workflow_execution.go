@@ -71,6 +71,7 @@ func (e *historyEngineImpl) StartWorkflowExecution(
 			domainEntry,
 			workflowExecution,
 			historyBlob,
+			false,
 			err,
 		)
 		return nil, err
@@ -372,6 +373,7 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 	domainEntry *cache.DomainCacheEntry,
 	workflowExecution *types.WorkflowExecution,
 	historyBlob *events.PersistedBlob,
+	isSignalWithStart bool,
 	err error,
 ) {
 
@@ -406,26 +408,13 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 		return
 	}
 
-	e.logger.Debug("handleCreateWorkflowExecutionFailureCleanup hit",
-		tag.WorkflowRunID(workflowExecution.RunID),
-		tag.Dynamic("debug-historyBlobBranchToken", historyBlob.BranchToken),
-		tag.WorkflowDomainID(domainEntry.GetInfo().ID),
-		tag.WorkflowID(workflowExecution.WorkflowID),
-		tag.WorkflowRunID(workflowExecution.RunID),
-		tag.Dynamic("debug-startRequest", startRequest),
-		tag.Dynamic("debug-historyBlob", historyBlob),
-		tag.Dynamic("debug-domainEntry", domainEntry),
-		tag.Dynamic("debug-workflowExecution", workflowExecution),
-		tag.Error(err),
-	)
-
 	// The key here is to delete the additational branch, since it has just been created earlier in this call
 	// and is not used. However, we must be careful, there may be other existing branches that we must not touch
 	e.logger.Info("Deleting orphaned history branch during cleanup after identified failure during creation",
 		tag.WorkflowDomainID(domainEntry.GetInfo().ID),
 		tag.WorkflowID(workflowExecution.WorkflowID),
 		tag.WorkflowRunID(workflowExecution.RunID),
-		tag.Dynamic("debug-historyBlobBranchToken", historyBlob.BranchToken),
+		tag.Dynamic("debug-isSignalWithStart", isSignalWithStart),
 		tag.Error(err))
 
 	cleanupErr := e.shard.GetHistoryManager().DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
@@ -618,6 +607,7 @@ func (e *historyEngineImpl) SignalWithStartWorkflowExecution(
 			domainEntry,
 			createdWFExecution,
 			historyBlob,
+			true,
 			err,
 		)
 		return nil, err
