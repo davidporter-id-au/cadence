@@ -381,7 +381,7 @@ func (e *historyEngineImpl) handleCreateWorkflowExecutionFailureCleanup(
 		return
 	}
 
-	if err != nil {
+	if err == nil {
 		e.logger.Error("a cleanup was called when there was no error, This is a bug",
 			tag.WorkflowDomainID(domainEntry.GetInfo().ID),
 			tag.WorkflowID(workflowExecution.WorkflowID),
