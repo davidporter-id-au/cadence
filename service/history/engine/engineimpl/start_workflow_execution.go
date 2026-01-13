@@ -142,13 +142,6 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		signalWithStartRequest = signalWithStartArg.signalWithStartRequest
 	}
 	if prevMutableState != nil {
-		e.logger.Info("debug info - Start workflow execution - prevMutableState != nil",
-			tag.WorkflowDomainID(domainID),
-			tag.WorkflowDomainName(domain),
-			tag.WorkflowID(startRequest.StartRequest.WorkflowID),
-			tag.WorkflowRunID(workflowExecution.RunID),
-			tag.Dynamic("wf-start-debug-prevMutableState", prevMutableState),
-		)
 		prevLastWriteVersion, err := prevMutableState.GetLastWriteVersion()
 		if err != nil {
 			return nil, nil, nil, err
@@ -276,7 +269,7 @@ func (e *historyEngineImpl) startWorkflowHelper(
 		}
 
 		if isSignalWithStart {
-			e.logger.Warn("signal-with-start might have left an orphaned history branch",
+			e.logger.Debug("signal-with-start might have left an orphaned history branch",
 				tag.WorkflowDomainID(domainEntry.GetInfo().ID),
 				tag.WorkflowID(workflowExecution.WorkflowID),
 				tag.WorkflowRunID(workflowExecution.RunID),
