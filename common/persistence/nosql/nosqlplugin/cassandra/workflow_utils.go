@@ -30,14 +30,13 @@ import (
 
 	"github.com/uber/cadence/common"
 	"github.com/uber/cadence/common/constants"
-	"github.com/uber/cadence/common/log/tag"
 	"github.com/uber/cadence/common/persistence"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin/cassandra/gocql"
 	"github.com/uber/cadence/common/types"
 )
 
-func (db *CDB) executeCreateWorkflowBatchTransaction(
+func executeCreateWorkflowBatchTransaction(
 	ctx context.Context,
 	session gocql.Session,
 	batch gocql.Batch,
@@ -85,12 +84,6 @@ func (db *CDB) executeCreateWorkflowBatchTransaction(
 	var allPrevious []map[string]interface{}
 
 	for {
-		db.logger.Info("debug info - Executing create workflow batch transaction",
-			tag.WorkflowDomainID(execution.DomainID),
-			tag.WorkflowID(execution.WorkflowID),
-			tag.WorkflowRunID(execution.RunID),
-			tag.Dynamic("debug-previous-row", previous),
-		)
 		rowType, ok := previous["type"].(int)
 		if !ok {
 			// This should never happen, as all our rows have the type field.
@@ -185,7 +178,7 @@ func (db *CDB) executeCreateWorkflowBatchTransaction(
 	if currentExecutionAlreadyExists {
 		if actualExecution != nil {
 			executionInfo := parseWorkflowExecutionInfo(actualExecution)
-			msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v. Current execution already exists. Actual execution: %v", currentWorkflowRequest.Row.WorkflowID, executionInfo.RunID, actualExecution)
+			msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v", currentWorkflowRequest.Row.WorkflowID, executionInfo.RunID)
 			return &nosqlplugin.WorkflowOperationConditionFailure{
 				WorkflowExecutionAlreadyExists: &nosqlplugin.WorkflowExecutionAlreadyExists{
 					OtherInfo:        msg,
@@ -197,7 +190,7 @@ func (db *CDB) executeCreateWorkflowBatchTransaction(
 				},
 			}
 		}
-		msg := fmt.Sprintf("Workflow execution already running, however no actual execution record was available. WorkflowId: %v", currentWorkflowRequest.Row.WorkflowID)
+		msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v", currentWorkflowRequest.Row.WorkflowID)
 		return &nosqlplugin.WorkflowOperationConditionFailure{
 			CurrentWorkflowConditionFailInfo: &msg,
 		}
@@ -224,7 +217,7 @@ func (db *CDB) executeCreateWorkflowBatchTransaction(
 		}
 	}
 	if concreteExecutionAlreadyExists {
-		msg := fmt.Sprintf("Workflow execution already running. There's a concrete execution record for this workflow. WorkflowId: %v, RunId: %v", execution.WorkflowID, execution.RunID)
+		msg := fmt.Sprintf("Workflow execution already running. WorkflowId: %v, RunId: %v", execution.WorkflowID, execution.RunID)
 		return &nosqlplugin.WorkflowOperationConditionFailure{
 			WorkflowExecutionAlreadyExists: &nosqlplugin.WorkflowExecutionAlreadyExists{
 				OtherInfo:        msg,

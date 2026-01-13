@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/uber/cadence/common/constants"
-	"github.com/uber/cadence/common/log/tag"
 	"github.com/uber/cadence/common/persistence"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin"
 	"github.com/uber/cadence/common/persistence/nosql/nosqlplugin/cassandra/gocql"
@@ -75,24 +74,7 @@ func (db *CDB) InsertWorkflowExecutionWithTasks(
 
 	assertShardRangeID(batch, shardID, shardCondition.RangeID, timeStamp)
 
-	err = db.executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
-	if err != nil {
-		db.logger.Debug("debug info - Error executing create workflow batch transaction",
-			tag.WorkflowDomainID(domainID),
-			tag.WorkflowID(workflowID),
-			tag.WorkflowRunID(execution.RunID),
-			tag.Dynamic("debug-batch-contents", batch),
-			tag.Error(err))
-		return err
-	}
-	db.logger.Debug("debug info - No error executing create workflow batch transaction",
-		tag.WorkflowDomainID(domainID),
-		tag.WorkflowID(workflowID),
-		tag.WorkflowRunID(execution.RunID),
-		tag.Dynamic("debug-batch-contents", batch),
-	)
-
-	return nil
+	return executeCreateWorkflowBatchTransaction(ctx, db.session, batch, currentWorkflowRequest, execution, shardCondition)
 }
 
 func (db *CDB) SelectCurrentWorkflow(

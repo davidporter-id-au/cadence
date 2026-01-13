@@ -477,11 +477,6 @@ func (c *contextImpl) CreateWorkflowExecution(
 	resp, err := c.createWorkflowExecutionFn(ctx, createRequest)
 	if err != nil {
 		if isOperationPossiblySuccessfulError(err) {
-			c.logger.Info("debug info - isOperationPossiblySuccessfulError hit - notifying tasks.", tag.Error(err),
-				tag.WorkflowDomainID(createRequest.NewWorkflowSnapshot.ExecutionInfo.DomainID),
-				tag.WorkflowID(createRequest.NewWorkflowSnapshot.ExecutionInfo.WorkflowID),
-				tag.WorkflowRunID(createRequest.NewWorkflowSnapshot.ExecutionInfo.RunID),
-				tag.Dynamic("debug-new-workflow-snapshot", createRequest.NewWorkflowSnapshot))
 			c.notifyTasksFromWorkflowSnapshotFn(newWorkflow, events.PersistedBlobs{persistedHistory}, true)
 		}
 		return err
@@ -1219,11 +1214,6 @@ func createWorkflowExecutionWithRetry(
 	case nil:
 		return resp, nil
 	case *persistence.WorkflowExecutionAlreadyStartedError:
-		logger.Debug("debug info - WorkflowExecutionAlreadyStartedError hit - returning after throttleRetry.", tag.Error(err),
-			tag.WorkflowDomainID(request.NewWorkflowSnapshot.ExecutionInfo.DomainID),
-			tag.WorkflowID(request.NewWorkflowSnapshot.ExecutionInfo.WorkflowID),
-			tag.WorkflowRunID(request.NewWorkflowSnapshot.ExecutionInfo.RunID),
-			tag.Dynamic("debug-new-workflow-snapshot", request.NewWorkflowSnapshot))
 		// it is possible that workflow already exists and caller need to apply
 		// workflow ID reuse policy
 		return nil, err
